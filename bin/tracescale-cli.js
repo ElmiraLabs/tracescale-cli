@@ -14,9 +14,23 @@ import { derniereRelease, telechargerEtExtraire } from '../lib/github.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SUR_WINDOWS = process.platform === 'win32'
 
+// Couleur ANSI faite main (pas de dépendance type chalk/gradient-string,
+// cohérent avec le choix « zéro dépendance » de ce dépôt) — désactivée si
+// la sortie n'est pas un TTY (redirection vers un fichier/pipe) pour ne
+// jamais polluer une sortie scriptée avec des codes d'échappement.
 function afficherBanniere() {
   const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'))
-  console.log(`\nTraceScale CLI v${pkg.version}\n`)
+  if (!process.stdout.isTTY) {
+    console.log(`\nTraceScale CLI v${pkg.version}\n`)
+    return
+  }
+  const CYAN_GRAS = '[1m[36m'
+  const GRIS = '[2m'
+  const RESET = '[0m'
+  const separateur = '━'.repeat(24)
+  console.log(`\n${GRIS}${separateur}${RESET}`)
+  console.log(`${CYAN_GRAS}TraceScale CLI${RESET} ${GRIS}v${pkg.version}${RESET}`)
+  console.log(`${GRIS}${separateur}${RESET}\n`)
 }
 
 function lireArgs() {
