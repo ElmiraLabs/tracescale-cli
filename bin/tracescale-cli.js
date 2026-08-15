@@ -130,10 +130,21 @@ async function main() {
     })
     process.exitCode = resultat.status ?? 1
   } else {
-    const resultat = spawnSync('node', ['ace', 'instance:installer', `--type=${type}`, '--cible=natif'], {
-      cwd: join(dossierCible, 'apps/api'),
-      stdio: 'inherit',
-    })
+    // `node ace` valide toutes les variables d'environnement dès son
+    // démarrage, avant même le code de instance:installer — sur ce clone
+    // tout juste installé, apps/api/.env n'existe pas encore et planterait
+    // immédiatement. `installer:cli` (apps/api/package.json) génère
+    // d'abord un .env de dev factice si besoin, même garde-fou que la
+    // branche Docker ci-dessus (install:${type}:docker).
+    const resultat = spawnSync(
+      'npm',
+      ['run', 'installer:cli', '--workspace=apps/api', '--', `--type=${type}`, '--cible=natif'],
+      {
+        cwd: dossierCible,
+        stdio: 'inherit',
+        shell: SUR_WINDOWS,
+      }
+    )
     process.exitCode = resultat.status ?? 1
   }
 }
