@@ -129,13 +129,25 @@ async function main() {
       shell: SUR_WINDOWS,
     })
     process.exitCode = resultat.status ?? 1
+  } else if (type === 'site') {
+    // Bare-metal Site : GUI disponible (extension #632) — même garde-fou
+    // d'environnement que la branche Docker (installer:gui:site:natif
+    // chaîne assurer_env_dev.js en amont, apps/api/package.json).
+    const resultat = spawnSync('npm', ['run', 'install:site:natif'], {
+      cwd: dossierCible,
+      stdio: 'inherit',
+      shell: SUR_WINDOWS,
+    })
+    process.exitCode = resultat.status ?? 1
   } else {
-    // `node ace` valide toutes les variables d'environnement dès son
-    // démarrage, avant même le code de instance:installer — sur ce clone
-    // tout juste installé, apps/api/.env n'existe pas encore et planterait
+    // Bare-metal Siège : pas encore de GUI (choix domaine public/CA locale
+    // natif non tranché, #632) — reste sur le CLI classique. `node ace`
+    // valide toutes les variables d'environnement dès son démarrage, avant
+    // même le code de instance:installer — sur ce clone tout juste
+    // installé, apps/api/.env n'existe pas encore et planterait
     // immédiatement. `installer:cli` (apps/api/package.json) génère
-    // d'abord un .env de dev factice si besoin, même garde-fou que la
-    // branche Docker ci-dessus (install:${type}:docker).
+    // d'abord un .env de dev factice si besoin, même garde-fou que les
+    // branches ci-dessus.
     const resultat = spawnSync(
       'npm',
       ['run', 'installer:cli', '--workspace=apps/api', '--', `--type=${type}`, '--cible=natif'],
