@@ -10,27 +10,27 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { ask, askChoix, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire } from '../lib/github.js'
+import { avecSpinner } from '../lib/spinner.js'
+import { gris, cyanGras } from '../lib/ui.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SUR_WINDOWS = process.platform === 'win32'
 
-// Couleur ANSI faite main (pas de dépendance type chalk/gradient-string,
-// cohérent avec le choix « zéro dépendance » de ce dépôt) — désactivée si
-// la sortie n'est pas un TTY (redirection vers un fichier/pipe) pour ne
-// jamais polluer une sortie scriptée avec des codes d'échappement.
+// Coloration via `node:util.styleText` (lib/ui.js) — pas de dépendance
+// type chalk/gradient-string, cohérent avec le choix « zéro dépendance »
+// de ce dépôt — désactivée si la sortie n'est pas un TTY (redirection
+// vers un fichier/pipe) pour ne jamais polluer une sortie scriptée avec
+// des codes d'échappement.
 function afficherBanniere() {
   const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'))
   if (!process.stdout.isTTY) {
     console.log(`\nTraceScale CLI v${pkg.version}\n`)
     return
   }
-  const CYAN_GRAS = '[1m[36m'
-  const GRIS = '[2m'
-  const RESET = '[0m'
   const separateur = '━'.repeat(24)
-  console.log(`\n${GRIS}${separateur}${RESET}`)
-  console.log(`${CYAN_GRAS}TraceScale CLI${RESET} ${GRIS}v${pkg.version}${RESET}`)
-  console.log(`${GRIS}${separateur}${RESET}\n`)
+  console.log(`\n${gris(separateur)}`)
+  console.log(`${cyanGras('TraceScale CLI')} ${gris(`v${pkg.version}`)}`)
+  console.log(`${gris(separateur)}\n`)
 }
 
 function lireArgs() {
@@ -88,26 +88,29 @@ async function main() {
     return
   }
 
-  console.log('\nRécupération de la dernière version de TraceScale...')
+  console.log()
   let release
   try {
-    release = await derniereRelease(jeton)
-  } catch (err) {
-    console.error(`Échec : ${err.message}`)
+    release = await avecSpinner(
+      'Récupération de la dernière version de TraceScale...',
+      () => derniereRelease(jeton),
+      { succes: (r) => `Version trouvée : ${r.tag}` }
+    )
+  } catch {
     process.exitCode = 1
     return
   }
-  console.log(`Version trouvée : ${release.tag}`)
 
-  console.log(`Téléchargement dans ${dossierCible}...`)
   try {
-    await telechargerEtExtraire(release.tarballUrl, jeton, dossierCible)
-  } catch (err) {
-    console.error(`Échec : ${err.message}`)
+    await avecSpinner(
+      `Téléchargement dans ${dossierCible}...`,
+      () => telechargerEtExtraire(release.tarballUrl, jeton, dossierCible),
+      { succes: () => 'Téléchargement terminé.' }
+    )
+  } catch {
     process.exitCode = 1
     return
   }
-  console.log('Téléchargement terminé.')
 
   console.log('\nInstallation des dépendances (npm install)...')
   const resultatInstall = spawnSync('npm', ['install'], {
