@@ -5,12 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 `tracescale-cli` is the public `npx` bootstrapper for TraceScale
-(`npx github:ElmiraLabs/tracescale-cli`). It provisions a fresh client
-machine by fetching the latest published release of the private
-`ElmiraLabs/tracescale` repo, running `npm install`, and handing off to
-that repo's own install wizard. **This repo contains zero business logic**
-— only download/install plumbing. Everything else lives in the private
-monorepo.
+(`npx github:ElmiraLabs/tracescale-cli`). Same entry point handles two
+cases, auto-detected from the target directory's contents: provisioning a
+fresh client machine (fetches the latest published release of the private
+`ElmiraLabs/tracescale` repo, runs `npm install`, hands off to that repo's
+own install wizard), or updating an already-installed Site/Docker instance
+(detects type/current version, confirms, delegates to `node ace
+instance:installer --mettre-a-jour` inside the already-present install —
+never re-implements the update itself). **This repo contains zero business
+logic** — only download/install/update plumbing. Everything else lives in
+the private monorepo.
 
 There is no build step, no test suite, no linter, and no dependencies
 (`package.json` declares none). Run the CLI directly with Node ≥ 20:
@@ -37,11 +41,20 @@ instead (see `lib/prompts.js`).
   `/releases/latest` (release-please tags on the private repo). A client
   must always receive a published, released state — never in-progress
   integration code from the default branch.
-- **First provisioning only.** This tool refuses to run if the target
-  directory already looks like an install (`package.json` or `.git`
-  present) — updates/renewals/reinstalls go through `node ace
-  instance:installer` inside the already-cloned repo, not through this
-  CLI again.
+- **Provisioning or update, auto-detected — never re-implemented here.**
+  `installationExistante()` (`lib/installation_existante.js`) checks the
+  target directory for an existing install (`package.json`/`.git`
+  present) and, if found, identifies type/cible/version from files the
+  private repo's own installer already writes (`deploy/site/.env`,
+  `deploy/staging/.env`, `apps/api/build/.env`'s `TYPE_INSTANCE=`) — no
+  guessing, no re-asking the operator. Only Site+Docker updates are
+  delegated automatically (`node ace instance:installer --mettre-a-jour`,
+  spawned with the same token already collected); anything else (Siège,
+  bare-metal) prints a clear message pointing at `node ace
+  instance:installer` directly rather than attempting a call that would
+  fail. The actual update mechanism (what `--mettre-a-jour` downloads,
+  rebuilds, restarts) lives entirely in the private repo — this repo only
+  detects and delegates.
 - **This repo is public; the token must never leak into it.** The access
   token is a GitHub fine-grained PAT scoped to `Contents: Read-only` on
   `ElmiraLabs/tracescale` only, distributed out-of-band per
@@ -49,30 +62,50 @@ instead (see `lib/prompts.js`).
 
 ## Architecture
 
-Three files, linear flow, no framework:
+Four files, linear flow, no framework:
 
 - **`bin/tracescale-cli.js`** — entry point (`main()`). Parses `--key=value`
-  CLI args (`lireArgs`), falls back to interactive prompts for anything
-  missing, validates the target dir is empty, then runs the pipeline:
-  fetch latest release → download+extract tarball → `npm install` in the
-  target dir → `npm run install:<type>:<cible>` (spawned with
-  `stdio: 'inherit'` so the child wizard's own prompts/output pass
-  through directly). `type` is `siege|site`, `cible` is `docker|natif`;
-  the four combinations map to npm scripts of that same
-  `install:<type>:<cible>` name expected to exist in the private repo's
-  `package.json` once cloned.
+  CLI args (`lireArgs`), falls back to interactive prompts for token/dir.
+  Calls `installationExistante(dossierCible)`; if it returns non-null,
+  hands off entirely to `mettreAJour()` (same file) and returns — the
+  fresh-install path below never runs. Otherwise (no existing install)
+  asks for type/cible, then runs the provisioning pipeline: fetch latest
+  release → download+extract tarball → `npm install` in the target dir →
+  `npm run install:<type>:<cible>` (spawned with `stdio: 'inherit'` so
+  the child wizard's own prompts/output pass through directly). `type` is
+  `siege|site`, `cible` is `docker|natif`; the four combinations map to
+  npm scripts of that same `install:<type>:<cible>` name expected to
+  exist in the private repo's `package.json` once cloned.
+  `mettreAJour(dossierCible, existante, jeton)` only proceeds
+  automatically for `existante.type === 'site' && existante.cible ===
+  'docker'` (everything else prints a message pointing at `node ace
+  instance:installer` and exits) — fetches the latest release, compares
+  its version to `existante.version` (no-op if already current), confirms
+  with the operator, then spawns `node ace instance:installer --type=site
+  --mettre-a-jour --token=<jeton>` with `cwd: <dossierCible>/apps/api`.
+- **`lib/installation_existante.js`** — `installationExistante(dossierCible)`
+  returns `null` if nothing is installed there, otherwise `{ type, cible,
+  version }` inferred from files the private repo's own installer already
+  writes: `deploy/site/.env` present → `site`/`docker`;
+  `deploy/staging/.env` present → `siege`/`docker`; `apps/api/build/.env`
+  present → reads its `TYPE_INSTANCE=` line for `type`, `cible` is
+  `natif`. `version` comes from the target directory's own
+  `package.json`. Pure filesystem inspection, no network call.
 - **`lib/github.js`** — all GitHub API interaction: `derniereRelease(jeton)`
   fetches release metadata, `telechargerEtExtraire(tarballUrl, jeton,
   dossierCible)` streams the tarball to disk and shells out to the
   system `tar` (`--strip-components=1`, since GitHub tarballs wrap
   content in an `<owner>-<repo>-<sha>/` dir) — no `tar` npm package,
-  relies on the OS binary. Also exports `messageErreur(err)`, which
-  unwraps Node/undici's habit of collapsing every `fetch` failure into a
-  generic `TypeError: fetch failed` — the real cause (DNS, TLS,
-  connection refused...) is in `err.cause`, not `err.message`. This is
-  the same fix applied to `siege_client.ts`/`synchro_validation.ts` in
-  the private monorepo, reimplemented here standalone since this repo
-  can't import from the private repo it hasn't cloned yet.
+  relies on the OS binary. `versionDepuisTag(tag)` strips the
+  release-please tag format (`tracescale-v0.14.0`) down to a bare semver
+  (`0.14.0`) comparable against `package.json`'s `version` field. Also
+  exports `messageErreur(err)`, which unwraps Node/undici's habit of
+  collapsing every `fetch` failure into a generic `TypeError: fetch
+  failed` — the real cause (DNS, TLS, connection refused...) is in
+  `err.cause`, not `err.message`. This is the same fix applied to
+  `siege_client.ts`/`synchro_validation.ts` in the private monorepo,
+  reimplemented here standalone since this repo can't import from the
+  private repo it hasn't cloned yet.
 - **`lib/prompts.js`** — hand-rolled readline prompts: `ask` (text with
   default), `askConfirmation` (y/n), `askChoix` (numbered menu),
   `askMasque` (masked token input, raw-mode stdin echoing `*`). Falls
@@ -82,18 +115,22 @@ Three files, linear flow, no framework:
   treating it as one char let a stray `\r`/`\n` from the clipboard
   corrupt the token (see commit `779aee0`).
 
-Windows note: child processes (`npm install`, `npm run ...`) are spawned
-with `shell: SUR_WINDOWS` (`process.platform === 'win32'`) since `npm` is
-a `.cmd` shim there and needs a shell to resolve.
+Windows note: child processes (`npm install`, `npm run ...`, `node ace
+instance:installer ...`) are spawned with `shell: SUR_WINDOWS`
+(`process.platform === 'win32'`) since `npm` is a `.cmd` shim there and
+needs a shell to resolve.
 
 ## Relationship to the private `tracescale` monorepo
 
-This repo only bootstraps up to the point of calling
-`npm run install:<type>:<cible>` inside the freshly-downloaded repo. The
-actual install wizard, `node ace instance:installer`, environment-guard
-scripts (`assurer_env_dev.js`), and all business logic live there, not
-here. When a change here references behavior "on the other side" (e.g.
-`install:*:natif` needing a `.env` before `node ace` runs), that's
-describing a contract with the private repo's `package.json` scripts —
-verify against that repo if you need details beyond what's cross-referenced
-in comments here.
+Fresh install: this repo only bootstraps up to the point of calling
+`npm run install:<type>:<cible>` inside the freshly-downloaded repo.
+Update: it stops at spawning `node ace instance:installer --mettre-a-jour`
+inside the already-present repo. Either way, the actual install/update
+wizard, `node ace instance:installer`, environment-guard scripts
+(`assurer_env_dev.js`), and all business logic live there, not here. When
+a change here references behavior "on the other side" (e.g. `install:*:natif`
+needing a `.env` before `node ace` runs, or what `--mettre-a-jour`
+downloads/rebuilds/restarts), that's describing a contract with the
+private repo's `package.json` scripts and `instance_installer.ts` — verify
+against that repo if you need details beyond what's cross-referenced in
+comments here.

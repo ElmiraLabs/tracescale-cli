@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 // #713 (volet 2) : point d'entrée unique `npx github:ElmiraLabs/tracescale-cli`
-// pour provisionner une instance TraceScale sur une machine cliente fraîche
-// — clone (via API GitHub, dernière release) → npm install → lance le
-// wizard d'installation déjà existant côté dépôt privé (aucune logique
-// métier ici, cf. README.md).
-import { readFileSync, existsSync } from 'node:fs'
+// — première installation (clone via API GitHub, dernière release → npm
+// install → lance le wizard côté dépôt privé) ET mise à jour d'une
+// installation déjà présente (détectée automatiquement, délègue à `node
+// ace instance:installer --mettre-a-jour` — cf. mettreAJour() plus bas).
+// Aucune logique métier ici dans les deux cas, cf. README.md.
+import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
-import { ask, askChoix, askMasque } from '../lib/prompts.js'
-import { derniereRelease, telechargerEtExtraire } from '../lib/github.js'
+import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
+import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
+import { installationExistante } from '../lib/installation_existante.js'
 import { avecSpinner } from '../lib/spinner.js'
 import { gris, cyanGras } from '../lib/ui.js'
 
@@ -42,6 +44,62 @@ function lireArgs() {
   return args
 }
 
+// Une installation détectée dans dossierCible ne redemande rien (type,
+// cible, jeton déjà connus) : récupère la dernière release, compare à la
+// version déjà en place, puis délègue à `node ace instance:installer
+// --mettre-a-jour` (dépôt privé) — jamais de logique de mise à jour ici,
+// seulement la détection + la délégation (cf. README.md, « aucun code
+// métier »).
+async function mettreAJour(dossierCible, existante, jeton) {
+  if (existante.type !== 'site' || existante.cible !== 'docker') {
+    const description = existante.type
+      ? `${existante.type}/${existante.cible ?? 'inconnue'}`
+      : 'de type indéterminé'
+    console.error(
+      `${dossierCible} contient déjà une installation ${description} — la mise à jour automatique ne prend en charge que Site + Docker pour l'instant. ` +
+        'Utiliser directement `node ace instance:installer` depuis ce dossier (voir la documentation du dépôt principal).'
+    )
+    process.exitCode = 1
+    return
+  }
+
+  console.log()
+  let release
+  try {
+    release = await avecSpinner(
+      'Vérification de la dernière version publiée...',
+      () => derniereRelease(jeton),
+      { succes: (r) => `Dernière version publiée : ${r.tag}` }
+    )
+  } catch {
+    process.exitCode = 1
+    return
+  }
+
+  const versionCible = versionDepuisTag(release.tag)
+  if (existante.version && versionCible === existante.version) {
+    console.log(`\n${dossierCible} est déjà à jour (version ${existante.version}).`)
+    return
+  }
+
+  console.log(
+    `\nVersion actuelle : ${existante.version ?? 'inconnue'} → nouvelle version disponible : ${versionCible}`
+  )
+  const continuer = await askConfirmation('Mettre à jour maintenant ?')
+  if (!continuer) {
+    console.log('Mise à jour annulée.')
+    return
+  }
+
+  console.log('\nLancement de la mise à jour...\n')
+  const resultat = spawnSync(
+    'node',
+    ['ace', 'instance:installer', '--type=site', '--mettre-a-jour', `--token=${jeton}`],
+    { cwd: join(dossierCible, 'apps/api'), stdio: 'inherit', shell: SUR_WINDOWS }
+  )
+  process.exitCode = resultat.status ?? 1
+}
+
 async function main() {
   afficherBanniere()
   const args = lireArgs()
@@ -55,12 +113,10 @@ async function main() {
 
   const dossierBrut = args.dir ?? (await ask("Répertoire d'installation", { default: './tracescale' }))
   const dossierCible = resolve(process.cwd(), dossierBrut)
-  if (existsSync(join(dossierCible, 'package.json')) || existsSync(join(dossierCible, '.git'))) {
-    console.error(
-      `${dossierCible} existe déjà et semble contenir une installation — ce script ne gère pas la mise à jour. ` +
-        'Utiliser directement `node ace instance:installer` depuis ce dossier pour un renouvellement ou une réinstallation.'
-    )
-    process.exitCode = 1
+
+  const existante = installationExistante(dossierCible)
+  if (existante) {
+    await mettreAJour(dossierCible, existante, jeton)
     return
   }
 
