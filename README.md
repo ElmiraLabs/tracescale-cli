@@ -37,12 +37,16 @@ puis regarde ce qu'il y a dedans :
 - **Dossier contenant déjà une installation Site/Docker** → mise à jour :
   le type est détecté automatiquement (pas besoin de le refournir), la
   version déjà installée est comparée à la dernière release publiée, puis
-  une confirmation est demandée avant de lancer la mise à jour (délègue à
-  `node ace instance:installer --mettre-a-jour` dans le dépôt déjà présent
-  — voir sa documentation pour le détail du mécanisme). Rien à faire si
-  déjà à jour. Les autres combinaisons (Siège, bare-metal) ne sont pas
-  encore prises en charge par cette détection automatique — message
-  explicite renvoyant vers `node ace instance:installer` directement.
+  une confirmation est demandée avant de lancer la mise à jour. Le tag
+  confirmé est écrit dans `deploy/site/.env` (`IMAGE_TAG=`, qui fait foi
+  côté dépôt privé — jamais « la dernière version » choisie en silence sur
+  une machine de production), puis délègue à `node ace instance:installer
+  --mettre-a-jour` dans le dépôt déjà présent (voir sa documentation pour
+  le détail du mécanisme : image `api` publiée tirée directement, `web`
+  reconstruit localement). Rien à faire si déjà à jour. Les autres
+  combinaisons (Siège, bare-metal) ne sont pas encore prises en charge par
+  cette détection automatique — message explicite renvoyant vers `node ace
+  instance:installer` directement.
 
 ## Prérequis sur la machine cible
 
@@ -54,10 +58,15 @@ puis regarde ce qu'il y a dedans :
 ## Jeton d'accès
 
 Le jeton doit être un **fine-grained personal access token** GitHub, limité
-au dépôt `ElmiraLabs/tracescale`, avec la permission **Contents: Read-only**
-uniquement. Il est généré et transmis par Elmira Labs via un canal séparé
-(jamais en clair dans un dépôt ou une documentation publique), révocable et
-limitable dans le temps, par client/déploiement.
+au dépôt `ElmiraLabs/tracescale`, avec la permission **Contents: Read-only**.
+Pour une installation Site (seule à supporter la mise à jour automatique,
+cf. ci-dessus), ajouter aussi **Packages: Read** — le paquet
+`ghcr.io/elmiralabs/tracescale-api` est privé, nécessaire pour que la
+mise à jour déléguée puisse le tirer (`docker login ghcr.io`, géré côté
+dépôt privé, jamais par ce script). Il est généré et transmis par Elmira
+Labs via un canal séparé (jamais en clair dans un dépôt ou une
+documentation publique), révocable et limitable dans le temps, par
+client/déploiement.
 
 ## Portée
 

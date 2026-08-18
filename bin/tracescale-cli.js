@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
-import { installationExistante } from '../lib/installation_existante.js'
+import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
 import { avecSpinner } from '../lib/spinner.js'
 import { gris, cyanGras } from '../lib/ui.js'
 
@@ -90,6 +90,13 @@ async function mettreAJour(dossierCible, existante, jeton) {
     console.log('Mise à jour annulée.')
     return
   }
+
+  // #830 : IMAGE_TAG (deploy/site/.env) fait foi côté --mettre-a-jour — on
+  // écrit ici le tag qu'on vient de proposer et de faire confirmer, pour
+  // que les deux mécanismes restent cohérents (jamais de version
+  // différente entre ce qui a été annoncé et ce qui est réellement
+  // installé).
+  ecrireImageTag(dossierCible, release.tag)
 
   console.log('\nLancement de la mise à jour...\n')
   const resultat = spawnSync(

@@ -57,8 +57,11 @@ instead (see `lib/prompts.js`).
   detects and delegates.
 - **This repo is public; the token must never leak into it.** The access
   token is a GitHub fine-grained PAT scoped to `Contents: Read-only` on
-  `ElmiraLabs/tracescale` only, distributed out-of-band per
-  client/deployment. Never log it, echo it unmasked, or write it to disk.
+  `ElmiraLabs/tracescale` (add `Packages: Read` for Site tokens that will
+  also drive updates — the `tracescale-api` GHCR package is private),
+  distributed out-of-band per client/deployment. Never log it, echo it
+  unmasked, or write it to disk — `ecrireImageTag()` writes only the
+  confirmed release *tag* (never a secret) into the target's `.env`.
 
 ## Architecture
 
@@ -81,8 +84,12 @@ Four files, linear flow, no framework:
   'docker'` (everything else prints a message pointing at `node ace
   instance:installer` and exits) — fetches the latest release, compares
   its version to `existante.version` (no-op if already current), confirms
-  with the operator, then spawns `node ace instance:installer --type=site
-  --mettre-a-jour --token=<jeton>` with `cwd: <dossierCible>/apps/api`.
+  with the operator, writes that confirmed tag into `deploy/site/.env`
+  (`ecrireImageTag`, see below — keeps this tool's proposal and what
+  `--mettre-a-jour` actually installs in sync, since that command reads
+  `IMAGE_TAG` from `.env` rather than re-fetching "latest" itself), then
+  spawns `node ace instance:installer --type=site --mettre-a-jour
+  --token=<jeton>` with `cwd: <dossierCible>/apps/api`.
 - **`lib/installation_existante.js`** — `installationExistante(dossierCible)`
   returns `null` if nothing is installed there, otherwise `{ type, cible,
   version }` inferred from files the private repo's own installer already
@@ -91,6 +98,10 @@ Four files, linear flow, no framework:
   present → reads its `TYPE_INSTANCE=` line for `type`, `cible` is
   `natif`. `version` comes from the target directory's own
   `package.json`. Pure filesystem inspection, no network call.
+  `ecrireImageTag(dossierCible, tag)` writes/updates the `IMAGE_TAG=` line
+  in `deploy/site/.env` — the private repo's source of truth for which
+  release a Site's API image should be pulled at (never "latest" chosen
+  silently on a production machine, cf. `instance_installer.ts`).
 - **`lib/github.js`** — all GitHub API interaction: `derniereRelease(jeton)`
   fetches release metadata, `telechargerEtExtraire(tarballUrl, jeton,
   dossierCible)` streams the tarball to disk and shells out to the
