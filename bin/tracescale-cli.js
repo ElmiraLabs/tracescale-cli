@@ -13,7 +13,7 @@ import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
 import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
 import { avecSpinner } from '../lib/spinner.js'
-import { gris, cyanGras } from '../lib/ui.js'
+import { gris, blancGras, vertGras } from '../lib/ui.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SUR_WINDOWS = process.platform === 'win32'
@@ -31,7 +31,7 @@ function afficherBanniere() {
   }
   const separateur = '━'.repeat(24)
   console.log(`\n${gris(separateur)}`)
-  console.log(`${cyanGras('TraceScale CLI')} ${gris(`v${pkg.version}`)}`)
+  console.log(`${blancGras('Trace')}${vertGras('Scale')} CLI ${gris(`v${pkg.version}`)}`)
   console.log(`${gris(separateur)}\n`)
 }
 
