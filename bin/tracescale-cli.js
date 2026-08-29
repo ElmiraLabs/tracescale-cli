@@ -12,21 +12,12 @@ import { dirname, join, resolve } from 'node:path'
 import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
 import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
+import { AVERTISSEMENT_JETON_ARGUMENT, envAvecJeton, resoudreJeton } from '../lib/jeton.js'
 import { avecSpinner } from '../lib/spinner.js'
 import { gris, blancGras, vertGras } from '../lib/ui.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SUR_WINDOWS = process.platform === 'win32'
-// #10 / tracescale#1224 : même nom que côté dépôt privé
-// (apps/api/app/modules/installation/jeton_release_github.ts).
-const NOM_VARIABLE_JETON = 'TRACESCALE_GITHUB_TOKEN'
-
-// Environnement des processus enfants (wizard, mise à jour) : le jeton y
-// est posé pour que `instance:installer`/`instance:installer:gui` ne le
-// redemandent pas — jamais en argument de ligne de commande.
-function envAvecJeton(jeton) {
-  return { ...process.env, [NOM_VARIABLE_JETON]: jeton }
-}
 
 // Coloration via `node:util.styleText` (lib/ui.js) — pas de dépendance
 // type chalk/gradient-string, cohérent avec le choix « zéro dépendance »
@@ -126,14 +117,10 @@ async function main() {
 
   // #10 / tracescale#1224 : variable d'environnement d'abord (jamais dans
   // `ps` ni l'historique), puis saisie masquée ; `--token=` encore accepté
-  // avec avertissement, retiré dans une prochaine version.
-  const jetonEnv = process.env[NOM_VARIABLE_JETON]?.trim()
-  if (!jetonEnv && args.token) {
-    console.error(
-      `Avertissement : --token expose le jeton dans la liste des processus et l'historique du shell — préférer la variable ${NOM_VARIABLE_JETON} (ou la saisie masquée). --token sera retiré dans une prochaine version.`
-    )
-  }
-  const jeton = jetonEnv || args.token || (await askMasque("Jeton d'accès au dépôt tracescale"))
+  // avec avertissement, retiré dans une prochaine version (lib/jeton.js).
+  const resolu = resoudreJeton(args.token, process.env)
+  if (resolu?.source === 'argument') console.error(AVERTISSEMENT_JETON_ARGUMENT)
+  const jeton = resolu?.jeton ?? (await askMasque("Jeton d'accès au dépôt tracescale")).trim()
   if (!jeton.trim()) {
     console.error('Jeton requis — impossible de continuer.')
     process.exitCode = 1

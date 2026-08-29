@@ -83,7 +83,9 @@ instead (see `lib/prompts.js`).
 
 ## Architecture
 
-Four files, linear flow, no framework:
+One entry point plus small `lib/` helpers (`github.js`, `jeton.js`,
+`installation_existante.js`, `prompts.js`, `spinner.js`, `ui.js`), linear
+flow, no framework:
 
 - **`bin/tracescale-cli.js`** — entry point (`main()`). Parses `--key=value`
   CLI args (`lireArgs`), falls back to interactive prompts for token/dir.
@@ -109,6 +111,10 @@ Four files, linear flow, no framework:
   spawns `node ace instance:installer --type=site --mettre-a-jour` with
   `cwd: <dossierCible>/apps/api` and the token in `env`
   (`TRACESCALE_GITHUB_TOKEN`), never as `--token=`.
+- **`lib/jeton.js`** — `resoudreJeton(argumentToken, env)` (pure: env
+  `TRACESCALE_GITHUB_TOKEN` → `--token` → `null`, trimmed) and
+  `envAvecJeton(jeton, base)` (child-process env, never an argv). Tested
+  in `test/jeton.test.js`.
 - **`lib/installation_existante.js`** — `installationExistante(dossierCible)`
   returns `null` if nothing is installed there, otherwise `{ type, cible,
   version }` inferred from files the private repo's own installer already

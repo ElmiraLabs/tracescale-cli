@@ -30,6 +30,9 @@ puis regarde ce qu'il y a dedans :
     --cible=docker
   ```
 
+  Sous Windows : `$env:TRACESCALE_GITHUB_TOKEN = 'github_pat_xxx'` (PowerShell)
+  ou `set TRACESCALE_GITHUB_TOKEN=github_pat_xxx` (cmd) avant la commande.
+
   Le jeton se fournit par la variable d'environnement `TRACESCALE_GITHUB_TOKEN`
   ou en saisie masquée ; il est transmis au wizard du dépôt privé par
   l'environnement, jamais en argument (`--token=` reste accepté mais
