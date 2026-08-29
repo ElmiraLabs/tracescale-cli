@@ -31,8 +31,10 @@ puis regarde ce qu'il y a dedans :
   ```
 
   Télécharge la **dernière release publiée** de TraceScale (pas la branche
-  de développement), installe les dépendances, puis lance l'assistant
-  d'installation côté dépôt privé.
+  de développement), **vérifie son empreinte SHA-256** contre le manifeste
+  `SHA256SUMS` publié sur la même release (une archive altérée ou une
+  release sans manifeste est refusée, rien n'est extrait), installe les
+  dépendances, puis lance l'assistant d'installation côté dépôt privé.
 
 - **Dossier contenant déjà une installation Site/Docker** → mise à jour :
   le type est détecté automatiquement (pas besoin de le refournir), la

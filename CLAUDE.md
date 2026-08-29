@@ -34,9 +34,20 @@ instead (see `lib/prompts.js`).
   ANSI color are hand-rolled in `lib/prompts.js` /
   `bin/tracescale-cli.js` on purpose. The private monorepo's wizard is
   allowed richer deps; this repo is not.
-- **API download, never `git clone`.** `lib/github.js` fetches the tarball
-  via the GitHub REST API instead of cloning, specifically so the access
-  token never ends up persisted in `.git/config` or a remote URL.
+- **API download, never `git clone`.** `lib/github.js` fetches the release
+  assets via the GitHub REST API instead of cloning, specifically so the
+  access token never ends up persisted in `.git/config` or a remote URL.
+- **Verified before extracted (#14, mirror of tracescale#1172).** The
+  source archive is the CI-built asset `tracescale-source.tar.gz` (never
+  GitHub's on-the-fly `tarball_url`, which has no publishable checksum).
+  Its SHA-256 is checked against the `SHA256SUMS` manifest published on
+  the same release *before* `tar` runs; a mismatch or a missing manifest
+  aborts, deletes the file and never falls back. A release published
+  before tracescale#1172 therefore cannot be installed by this CLI — by
+  design. `tar` runs with `--no-same-owner --no-same-permissions` (the CLI
+  runs as root/Administrator). Pure helpers (`analyserManifeste`,
+  `empreinteFichierSha256`, `verifierEmpreinteFichier`, `versionDepuisTag`) are covered by
+  `npm test` (`node --test`, still zero dependencies).
 - **Latest release only, never `main`.** `derniereRelease()` always hits
   `/releases/latest` (release-please tags on the private repo). A client
   must always receive a published, released state — never in-progress
@@ -103,11 +114,14 @@ Four files, linear flow, no framework:
   release a Site's API image should be pulled at (never "latest" chosen
   silently on a production machine, cf. `instance_installer.ts`).
 - **`lib/github.js`** — all GitHub API interaction: `derniereRelease(jeton)`
-  fetches release metadata, `telechargerEtExtraire(tarballUrl, jeton,
-  dossierCible)` streams the tarball to disk and shells out to the
-  system `tar` (`--strip-components=1`, since GitHub tarballs wrap
-  content in an `<owner>-<repo>-<sha>/` dir) — no `tar` npm package,
-  relies on the OS binary. `versionDepuisTag(tag)` strips the
+  fetches release metadata (`{ tag, assets: [{ name, url }] }`),
+  `telechargerEtExtraire(release, jeton, dossierCible)` downloads the
+  `SHA256SUMS` manifest and the `tracescale-source.tar.gz` asset (asset
+  API URL with `Accept: application/octet-stream`, the only way to fetch
+  an asset of a *private* release with a bearer token), verifies the
+  archive's SHA-256 against the manifest, then shells out to the system
+  `tar` (`--strip-components=1`, since the CI archive wraps content in a
+  `tracescale/` dir) — no `tar` npm package, relies on the OS binary. `versionDepuisTag(tag)` strips the
   release-please tag format (`tracescale-v0.14.0`) down to a bare semver
   (`0.14.0`) comparable against `package.json`'s `version` field. Also
   exports `messageErreur(err)`, which unwraps Node/undici's habit of

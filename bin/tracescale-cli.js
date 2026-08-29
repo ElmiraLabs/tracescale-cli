@@ -167,8 +167,9 @@ async function main() {
   try {
     await avecSpinner(
       `Téléchargement dans ${dossierCible}...`,
-      () => telechargerEtExtraire(release.tarballUrl, jeton, dossierCible),
-      { succes: () => 'Téléchargement terminé.' }
+      // #14 : archive source de la CI, vérifiée contre SHA256SUMS avant extraction.
+      () => telechargerEtExtraire(release, jeton, dossierCible),
+      { succes: () => 'Téléchargement vérifié et extrait.' }
     )
   } catch {
     process.exitCode = 1
