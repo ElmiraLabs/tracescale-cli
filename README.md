@@ -23,12 +23,17 @@ puis regarde ce qu'il y a dedans :
   aussi être fourni en argument pour un usage scripté :
 
   ```sh
+  TRACESCALE_GITHUB_TOKEN=github_pat_xxx \
   npx github:ElmiraLabs/tracescale-cli \
-    --token=github_pat_xxx \
     --dir=./tracescale \
     --type=site \
     --cible=docker
   ```
+
+  Le jeton se fournit par la variable d'environnement `TRACESCALE_GITHUB_TOKEN`
+  ou en saisie masquée ; il est transmis au wizard du dépôt privé par
+  l'environnement, jamais en argument (`--token=` reste accepté mais
+  déconseillé — visible dans `ps` et l'historique du shell — et sera retiré).
 
   Télécharge la **dernière release publiée** de TraceScale (pas la branche
   de développement), **vérifie son empreinte SHA-256** contre le manifeste

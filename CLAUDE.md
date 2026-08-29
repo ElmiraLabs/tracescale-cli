@@ -20,8 +20,15 @@ There is no build step, no test suite, no linter, and no dependencies
 (`package.json` declares none). Run the CLI directly with Node ≥ 20:
 
 ```sh
-node bin/tracescale-cli.js --token=... --dir=./tracescale --type=site --cible=docker
+TRACESCALE_GITHUB_TOKEN=... node bin/tracescale-cli.js --dir=./tracescale --type=site --cible=docker
 ```
+
+The token comes from `TRACESCALE_GITHUB_TOKEN` or a masked prompt
+(#10 / tracescale#1224); `--token=` is still accepted with a warning and
+will be removed. It is handed to every child process **through `env`**
+(`envAvecJeton()`), never as a CLI argument — so the private repo's
+wizard (`instance:installer`, `instance:installer:gui`) reads the same
+variable and does not ask again.
 
 Any argument omitted on the command line is prompted for interactively
 instead (see `lib/prompts.js`).
@@ -99,8 +106,9 @@ Four files, linear flow, no framework:
   (`ecrireImageTag`, see below — keeps this tool's proposal and what
   `--mettre-a-jour` actually installs in sync, since that command reads
   `IMAGE_TAG` from `.env` rather than re-fetching "latest" itself), then
-  spawns `node ace instance:installer --type=site --mettre-a-jour
-  --token=<jeton>` with `cwd: <dossierCible>/apps/api`.
+  spawns `node ace instance:installer --type=site --mettre-a-jour` with
+  `cwd: <dossierCible>/apps/api` and the token in `env`
+  (`TRACESCALE_GITHUB_TOKEN`), never as `--token=`.
 - **`lib/installation_existante.js`** — `installationExistante(dossierCible)`
   returns `null` if nothing is installed there, otherwise `{ type, cible,
   version }` inferred from files the private repo's own installer already

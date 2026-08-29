@@ -17,6 +17,16 @@ import { gris, blancGras, vertGras } from '../lib/ui.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SUR_WINDOWS = process.platform === 'win32'
+// #10 / tracescale#1224 : même nom que côté dépôt privé
+// (apps/api/app/modules/installation/jeton_release_github.ts).
+const NOM_VARIABLE_JETON = 'TRACESCALE_GITHUB_TOKEN'
+
+// Environnement des processus enfants (wizard, mise à jour) : le jeton y
+// est posé pour que `instance:installer`/`instance:installer:gui` ne le
+// redemandent pas — jamais en argument de ligne de commande.
+function envAvecJeton(jeton) {
+  return { ...process.env, [NOM_VARIABLE_JETON]: jeton }
+}
 
 // Coloration via `node:util.styleText` (lib/ui.js) — pas de dépendance
 // type chalk/gradient-string, cohérent avec le choix « zéro dépendance »
@@ -99,11 +109,14 @@ async function mettreAJour(dossierCible, existante, jeton) {
   ecrireImageTag(dossierCible, release.tag)
 
   console.log('\nLancement de la mise à jour...\n')
-  const resultat = spawnSync(
-    'node',
-    ['ace', 'instance:installer', '--type=site', '--mettre-a-jour', `--token=${jeton}`],
-    { cwd: join(dossierCible, 'apps/api'), stdio: 'inherit', shell: SUR_WINDOWS }
-  )
+  // #10 / tracescale#1224 : jeton transmis par l'environnement, jamais en
+  // argument (visible dans `ps` le temps de la mise à jour).
+  const resultat = spawnSync('node', ['ace', 'instance:installer', '--type=site', '--mettre-a-jour'], {
+    cwd: join(dossierCible, 'apps/api'),
+    stdio: 'inherit',
+    shell: SUR_WINDOWS,
+    env: envAvecJeton(jeton),
+  })
   process.exitCode = resultat.status ?? 1
 }
 
@@ -111,7 +124,16 @@ async function main() {
   afficherBanniere()
   const args = lireArgs()
 
-  const jeton = args.token ?? (await askMasque("Jeton d'accès au dépôt tracescale"))
+  // #10 / tracescale#1224 : variable d'environnement d'abord (jamais dans
+  // `ps` ni l'historique), puis saisie masquée ; `--token=` encore accepté
+  // avec avertissement, retiré dans une prochaine version.
+  const jetonEnv = process.env[NOM_VARIABLE_JETON]?.trim()
+  if (!jetonEnv && args.token) {
+    console.error(
+      `Avertissement : --token expose le jeton dans la liste des processus et l'historique du shell — préférer la variable ${NOM_VARIABLE_JETON} (ou la saisie masquée). --token sera retiré dans une prochaine version.`
+    )
+  }
+  const jeton = jetonEnv || args.token || (await askMasque("Jeton d'accès au dépôt tracescale"))
   if (!jeton.trim()) {
     console.error('Jeton requis — impossible de continuer.')
     process.exitCode = 1
@@ -194,6 +216,7 @@ async function main() {
       cwd: dossierCible,
       stdio: 'inherit',
       shell: SUR_WINDOWS,
+      env: envAvecJeton(jeton),
     })
     process.exitCode = resultat.status ?? 1
   } else {
@@ -205,6 +228,7 @@ async function main() {
       cwd: dossierCible,
       stdio: 'inherit',
       shell: SUR_WINDOWS,
+      env: envAvecJeton(jeton),
     })
     process.exitCode = resultat.status ?? 1
   }
