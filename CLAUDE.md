@@ -46,7 +46,7 @@ instead (see `lib/prompts.js`).
   before tracescale#1172 therefore cannot be installed by this CLI — by
   design. `tar` runs with `--no-same-owner --no-same-permissions` (the CLI
   runs as root/Administrator). Pure helpers (`analyserManifeste`,
-  `verifierEmpreinteFichier`, `versionDepuisTag`) are covered by
+  `empreinteFichierSha256`, `verifierEmpreinteFichier`, `versionDepuisTag`) are covered by
   `npm test` (`node --test`, still zero dependencies).
 - **Latest release only, never `main`.** `derniereRelease()` always hits
   `/releases/latest` (release-please tags on the private repo). A client
