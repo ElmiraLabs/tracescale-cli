@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path'
 import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
 import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
+import { AVERTISSEMENT_JETON_ARGUMENT, envAvecJeton, resoudreJeton } from '../lib/jeton.js'
 import { avecSpinner } from '../lib/spinner.js'
 import { gris, blancGras, vertGras } from '../lib/ui.js'
 
@@ -99,11 +100,14 @@ async function mettreAJour(dossierCible, existante, jeton) {
   ecrireImageTag(dossierCible, release.tag)
 
   console.log('\nLancement de la mise à jour...\n')
-  const resultat = spawnSync(
-    'node',
-    ['ace', 'instance:installer', '--type=site', '--mettre-a-jour', `--token=${jeton}`],
-    { cwd: join(dossierCible, 'apps/api'), stdio: 'inherit', shell: SUR_WINDOWS }
-  )
+  // #10 / tracescale#1224 : jeton transmis par l'environnement, jamais en
+  // argument (visible dans `ps` le temps de la mise à jour).
+  const resultat = spawnSync('node', ['ace', 'instance:installer', '--type=site', '--mettre-a-jour'], {
+    cwd: join(dossierCible, 'apps/api'),
+    stdio: 'inherit',
+    shell: SUR_WINDOWS,
+    env: envAvecJeton(jeton),
+  })
   process.exitCode = resultat.status ?? 1
 }
 
@@ -111,7 +115,12 @@ async function main() {
   afficherBanniere()
   const args = lireArgs()
 
-  const jeton = args.token ?? (await askMasque("Jeton d'accès au dépôt tracescale"))
+  // #10 / tracescale#1224 : variable d'environnement d'abord (jamais dans
+  // `ps` ni l'historique), puis saisie masquée ; `--token=` encore accepté
+  // avec avertissement, retiré dans une prochaine version (lib/jeton.js).
+  const resolu = resoudreJeton(args.token, process.env)
+  if (resolu?.source === 'argument') console.error(AVERTISSEMENT_JETON_ARGUMENT)
+  const jeton = resolu?.jeton ?? (await askMasque("Jeton d'accès au dépôt tracescale")).trim()
   if (!jeton.trim()) {
     console.error('Jeton requis — impossible de continuer.')
     process.exitCode = 1
@@ -194,6 +203,7 @@ async function main() {
       cwd: dossierCible,
       stdio: 'inherit',
       shell: SUR_WINDOWS,
+      env: envAvecJeton(jeton),
     })
     process.exitCode = resultat.status ?? 1
   } else {
@@ -205,6 +215,7 @@ async function main() {
       cwd: dossierCible,
       stdio: 'inherit',
       shell: SUR_WINDOWS,
+      env: envAvecJeton(jeton),
     })
     process.exitCode = resultat.status ?? 1
   }
