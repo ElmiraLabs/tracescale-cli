@@ -62,6 +62,21 @@ puis regarde ce qu'il y a dedans :
   en charge par cette détection — message explicite renvoyant vers `node ace
   instance:installer` directement.
 
+## Désinstallation
+
+```sh
+npx github:ElmiraLabs/tracescale-cli --desinstaller --dir=./tracescale
+# + suppression de la base, des certificats et des données (IRRÉVERSIBLE) :
+npx github:ElmiraLabs/tracescale-cli --desinstaller --purger-donnees --dir=./tracescale
+```
+
+Aucun jeton, aucun téléchargement : la CLI identifie l'installation présente
+(type, cible, version), demande confirmation, puis délègue à l'installateur
+déjà en place (`node ace instance:installer --type=… --cible=… --desinstaller`),
+qui redemande lui-même confirmation avant toute purge. Sans `--purger-donnees`,
+seuls les services (natif) ou conteneurs (Docker) sont retirés — base,
+certificats et configuration restent en place pour une réinstallation.
+
 ## Prérequis sur la machine cible
 
 - Node.js ≥ 20 et npm (déjà nécessaires pour exécuter `npx` lui-même).
