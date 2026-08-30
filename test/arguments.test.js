@@ -18,6 +18,11 @@ test('drapeaux nus : seulement la liste blanche → true ; une option à valeur 
     'desinstaller': true,
     'purger-donnees': true,
   })
+  assert.deepEqual(lireArgs(['--tout', '--lister', '--supprimer-images']), {
+    'tout': true,
+    'lister': true,
+    'supprimer-images': true,
+  })
   assert.deepEqual(lireArgs(['--dir', '--token', '--type']), {})
   assert.deepEqual(lireArgs(['--inconnu']), {})
 })
