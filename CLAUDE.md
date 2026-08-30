@@ -9,15 +9,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cases, auto-detected from the target directory's contents: provisioning a
 fresh client machine (fetches the latest published release of the private
 `ElmiraLabs/tracescale` repo, runs `npm install`, hands off to that repo's
-own install wizard), or updating an already-installed Site/Docker instance
+own install wizard), or updating an already-installed Site/Docker or native (Site/Siège) instance
 (detects type/current version, confirms, delegates to `node ace
 instance:installer --mettre-a-jour` inside the already-present install —
 never re-implements the update itself). **This repo contains zero business
 logic** — only download/install/update plumbing. Everything else lives in
 the private monorepo.
 
-There is no build step, no test suite, no linter, and no dependencies
-(`package.json` declares none). Run the CLI directly with Node ≥ 20:
+There is no build step, no linter, and no dependencies (`package.json`
+declares none); the pure helpers in `lib/` are covered by `npm test`
+(`node --test`). Run the CLI directly with Node ≥ 20:
 
 ```sh
 TRACESCALE_GITHUB_TOKEN=... node bin/tracescale-cli.js --dir=./tracescale --type=site --cible=docker
@@ -65,12 +66,12 @@ instead (see `lib/prompts.js`).
   present) and, if found, identifies type/cible/version from files the
   private repo's own installer already writes (`deploy/site/.env`,
   `deploy/staging/.env`, `apps/api/build/.env`'s `TYPE_INSTANCE=`) — no
-  guessing, no re-asking the operator. Only Site+Docker updates are
+  guessing, no re-asking the operator. Site+Docker and native (Site/Siège, tracescale#1223) updates are
   delegated automatically (`node ace instance:installer --mettre-a-jour`,
-  spawned with the same token already collected); anything else (Siège,
-  bare-metal) prints a clear message pointing at `node ace
-  instance:installer` directly rather than attempting a call that would
-  fail. The actual update mechanism (what `--mettre-a-jour` downloads,
+  spawned with the token in `env`); anything else (Siège/Docker, or a
+  native install whose `TYPE_INSTANCE` could not be read) prints a clear
+  message pointing at `node ace instance:installer` directly rather than
+  attempting a call that would fail. The actual update mechanism (what `--mettre-a-jour` downloads,
   rebuilds, restarts) lives entirely in the private repo — this repo only
   detects and delegates.
 - **This repo is public; the token must never leak into it.** The access
@@ -99,10 +100,18 @@ flow, no framework:
   `siege|site`, `cible` is `docker|natif`; the four combinations map to
   npm scripts of that same `install:<type>:<cible>` name expected to
   exist in the private repo's `package.json` once cloned.
-  `mettreAJour(dossierCible, existante, jeton)` only proceeds
-  automatically for `existante.type === 'site' && existante.cible ===
-  'docker'` (everything else prints a message pointing at `node ace
-  instance:installer` and exits) — fetches the latest release, compares
+  `mettreAJour(dossierCible, existante, jeton)` proceeds automatically
+  for Site/Docker and for native installs (Site or Siège, decided by the
+  pure `deciderMiseAJour()` in `lib/mise_a_jour.js`; Siège/Docker prints
+  a message pointing at `node ace instance:installer` and exits). Native:
+  the checkout is refreshed first (verified source archive + `npm
+  install`, so the installer of the target version is available — a
+  pre-#1223 install has no `--cible=natif --mettre-a-jour`), then `node
+  ace instance:installer --type=<type> --cible=natif --mettre-a-jour
+  --version=<tag>` (`argumentsInstanceInstaller()`). The installed version
+  is read from what RUNS (`apps/api/build/package.json` for native, see
+  `installationExistante`), never from the checkout the CLI itself
+  refreshes. Docker: fetches the latest release, compares
   its version to `existante.version` (no-op if already current), confirms
   with the operator, writes that confirmed tag into `deploy/site/.env`
   (`ecrireImageTag`, see below — keeps this tool's proposal and what

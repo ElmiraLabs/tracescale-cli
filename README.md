@@ -44,18 +44,22 @@ puis regarde ce qu'il y a dedans :
   release sans manifeste est refusée, rien n'est extrait), installe les
   dépendances, puis lance l'assistant d'installation côté dépôt privé.
 
-- **Dossier contenant déjà une installation Site/Docker** → mise à jour :
+- **Dossier contenant déjà une installation Site/Docker, ou native (Site ou Siège)** → mise à jour :
   le type est détecté automatiquement (pas besoin de le refournir), la
   version déjà installée est comparée à la dernière release publiée, puis
-  une confirmation est demandée avant de lancer la mise à jour. Le tag
-  confirmé est écrit dans `deploy/site/.env` (`IMAGE_TAG=`, qui fait foi
-  côté dépôt privé — jamais « la dernière version » choisie en silence sur
-  une machine de production), puis délègue à `node ace instance:installer
-  --mettre-a-jour` dans le dépôt déjà présent (voir sa documentation pour
-  le détail du mécanisme : image `api` publiée tirée directement, `web`
-  reconstruit localement). Rien à faire si déjà à jour. Les autres
-  combinaisons (Siège, bare-metal) ne sont pas encore prises en charge par
-  cette détection automatique — message explicite renvoyant vers `node ace
+  une confirmation est demandée avant de lancer la mise à jour. Site
+  Docker : le tag confirmé est écrit dans `deploy/site/.env` (`IMAGE_TAG=`,
+  qui fait foi côté dépôt privé — jamais « la dernière version » choisie en
+  silence sur une machine de production), puis délégation à `node ace
+  instance:installer --mettre-a-jour`. Native (Site ou Siège, détectée par
+  `apps/api/build/.env`) : le dépôt présent est d'abord rafraîchi depuis
+  l'archive vérifiée de la release (pour disposer de l'installateur à jour),
+  puis délégation à `node ace instance:installer --cible=natif
+  --mettre-a-jour --version=<tag>` (sauvegarde, bascule de `build/`, retour
+  arrière : voir `deploy/site-natif/README.md` du dépôt principal). La
+  version installée est lue dans ce qui tourne (`build/package.json` en
+  natif). Rien à faire si déjà à jour. Seul le Siège Docker n'est pas pris
+  en charge par cette détection — message explicite renvoyant vers `node ace
   instance:installer` directement.
 
 ## Prérequis sur la machine cible
@@ -81,8 +85,8 @@ client/déploiement.
 ## Portée
 
 Détecte et gère le premier provisionnement **et** la mise à jour d'une
-installation Site/Docker existante. Pour un renouvellement de certificat,
-une réinstallation forcée, ou une mise à jour Siège/bare-metal (pas encore
-détectées automatiquement), utiliser directement les commandes déjà
+installation Site/Docker ou native existante (la mise à jour native — sauvegarde, bascule de `build/`, retour arrière — est décrite dans `deploy/site-natif/README.md` du dépôt principal). Pour un renouvellement de certificat,
+une réinstallation forcée, ou une mise à jour Siège Docker (pas encore
+détectée automatiquement), utiliser directement les commandes déjà
 installées depuis le répertoire cloné (`node ace instance:installer ...`,
 voir la documentation du dépôt principal).
