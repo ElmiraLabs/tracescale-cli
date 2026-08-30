@@ -58,7 +58,10 @@ function lireArgs() {
 // téléchargement. `--purger-donnees` n'est transmis que s'il est donné ;
 // les confirmations propres à l'installateur (purge irréversible) restent.
 async function desinstaller(args) {
-  const dossierBrut = args.dir ?? (await ask("Répertoire de l'installation", { default: './tracescale' }))
+  const dossierBrut =
+    typeof args.dir === 'string' && args.dir
+      ? args.dir
+      : await ask("Répertoire de l'installation", { default: './tracescale' })
   const dossierCible = resolve(process.cwd(), dossierBrut)
   const existante = installationExistante(dossierCible)
   const cible = deciderDesinstallation(existante)
@@ -88,6 +91,9 @@ async function desinstaller(args) {
     stdio: 'inherit',
     shell: SUR_WINDOWS,
   })
+  if (resultat.error) {
+    console.error(`Impossible de lancer l'installateur : ${resultat.error.message}`)
+  }
   process.exitCode = resultat.status ?? 1
 }
 
@@ -200,6 +206,16 @@ async function main() {
   afficherBanniere()
   const args = lireArgs()
 
+  // Les drapeaux ne prennent pas de valeur : `--desinstaller=oui` serait
+  // silencieusement ignoré (et le flux d'installation réclamerait un jeton).
+  for (const drapeau of ['desinstaller', 'purger-donnees']) {
+    if (typeof args[drapeau] === 'string') {
+      console.error(`--${drapeau} ne prend pas de valeur (écrire simplement --${drapeau}).`)
+      process.exitCode = 1
+      return
+    }
+  }
+
   // Désinstallation : ni jeton ni téléchargement — traitée avant tout.
   if (args.desinstaller === true) {
     await desinstaller(args)
@@ -218,7 +234,10 @@ async function main() {
     return
   }
 
-  const dossierBrut = args.dir ?? (await ask("Répertoire d'installation", { default: './tracescale' }))
+  const dossierBrut =
+    typeof args.dir === 'string' && args.dir
+      ? args.dir
+      : await ask("Répertoire d'installation", { default: './tracescale' })
   const dossierCible = resolve(process.cwd(), dossierBrut)
 
   const existante = installationExistante(dossierCible)
