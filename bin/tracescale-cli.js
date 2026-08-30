@@ -13,6 +13,7 @@ import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
 import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
 import { AVERTISSEMENT_JETON_ARGUMENT, envAvecJeton, resoudreJeton } from '../lib/jeton.js'
+import { DRAPEAUX, lireArgs } from '../lib/arguments.js'
 import {
   argumentsDesinstallation,
   argumentsInstanceInstaller,
@@ -40,17 +41,6 @@ function afficherBanniere() {
   console.log(`\n${gris(separateur)}`)
   console.log(`${blancGras('Trace')}${vertGras('Scale')} CLI ${gris(`v${pkg.version}`)}`)
   console.log(`${gris(separateur)}\n`)
-}
-
-// `--cle=valeur` → chaîne ; `--drapeau` seul → true (`--desinstaller`,
-// `--purger-donnees`). Les tirets internes sont conservés dans la clé.
-function lireArgs() {
-  const args = {}
-  for (const arg of process.argv.slice(2)) {
-    const correspondance = /^--([a-z][a-z-]*)(?:=(.*))?$/.exec(arg)
-    if (correspondance) args[correspondance[1]] = correspondance[2] ?? true
-  }
-  return args
 }
 
 // tracescale-cli `--desinstaller` (registre TraceScale 2026-08-30) : délègue
@@ -204,11 +194,11 @@ async function mettreAJour(dossierCible, existante, jeton) {
 
 async function main() {
   afficherBanniere()
-  const args = lireArgs()
+  const args = lireArgs(process.argv.slice(2))
 
   // Les drapeaux ne prennent pas de valeur : `--desinstaller=oui` serait
   // silencieusement ignoré (et le flux d'installation réclamerait un jeton).
-  for (const drapeau of ['desinstaller', 'purger-donnees']) {
+  for (const drapeau of DRAPEAUX) {
     if (typeof args[drapeau] === 'string') {
       console.error(`--${drapeau} ne prend pas de valeur (écrire simplement --${drapeau}).`)
       process.exitCode = 1

@@ -126,8 +126,11 @@ flow, no framework:
   (`node ace instance:installer --type=<t> --cible=<c> --desinstaller
   [--purger-donnees]`, `argumentsDesinstallation()`); every identified
   type/cible pair is accepted (`deciderDesinstallation()`). Never downloads
-  anything and never adds `--purger-donnees` on its own. `lireArgs()`
-  accepts bare `--flag` (→ `true`) and keeps inner dashes in keys.
+  anything and never adds `--purger-donnees` on its own. Argument parsing
+  lives in `lib/arguments.js` (`lireArgs(argv)`, tested): only whitelisted
+  flags (`DRAPEAUX`) accept the bare form (→ `true`); a value option passed
+  bare (`--dir`) is ignored and prompted for, as before; a flag given a
+  value is refused by `main()`.
 - **`lib/jeton.js`** — `resoudreJeton(argumentToken, env)` (pure: env
   `TRACESCALE_GITHUB_TOKEN` → `--token` → `null`, trimmed) and
   `envAvecJeton(jeton, base)` (child-process env, never an argv). Tested
