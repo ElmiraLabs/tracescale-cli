@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cases, auto-detected from the target directory's contents: provisioning a
 fresh client machine (fetches the latest published release of the private
 `ElmiraLabs/tracescale` repo, runs `npm install`, hands off to that repo's
-own install wizard), or updating an already-installed Site/Docker instance
+own install wizard), or updating an already-installed Site/Docker or native (Site/Siège) instance
 (detects type/current version, confirms, delegates to `node ace
 instance:installer --mettre-a-jour` inside the already-present install —
 never re-implements the update itself). **This repo contains zero business
@@ -65,7 +65,7 @@ instead (see `lib/prompts.js`).
   present) and, if found, identifies type/cible/version from files the
   private repo's own installer already writes (`deploy/site/.env`,
   `deploy/staging/.env`, `apps/api/build/.env`'s `TYPE_INSTANCE=`) — no
-  guessing, no re-asking the operator. Only Site+Docker updates are
+  guessing, no re-asking the operator. Site+Docker and native (Site/Siège, tracescale#1223) updates are
   delegated automatically (`node ace instance:installer --mettre-a-jour`,
   spawned with the same token already collected); anything else (Siège,
   bare-metal) prints a clear message pointing at `node ace

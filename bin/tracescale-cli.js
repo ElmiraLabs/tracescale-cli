@@ -52,12 +52,17 @@ function lireArgs() {
 // seulement la détection + la délégation (cf. README.md, « aucun code
 // métier »).
 async function mettreAJour(dossierCible, existante, jeton) {
-  if (existante.type !== 'site' || existante.cible !== 'docker') {
+  // tracescale#1223 : le natif (Site et Siège) est délégué à
+  // `--cible=natif --mettre-a-jour --version=<tag>` ; Docker reste limité au
+  // Site (IMAGE_TAG écrit dans deploy/site/.env par ecrireImageTag).
+  const natif = existante.cible === 'natif' && (existante.type === 'site' || existante.type === 'siege')
+  const siteDocker = existante.type === 'site' && existante.cible === 'docker'
+  if (!natif && !siteDocker) {
     const description = existante.type
       ? `${existante.type}/${existante.cible ?? 'inconnue'}`
       : 'de type indéterminé'
     console.error(
-      `${dossierCible} contient déjà une installation ${description} — la mise à jour automatique ne prend en charge que Site + Docker pour l'instant. ` +
+      `${dossierCible} contient déjà une installation ${description} — la mise à jour automatique prend en charge Site + Docker et les installations natives (Site ou Siège). ` +
         'Utiliser directement `node ace instance:installer` depuis ce dossier (voir la documentation du dépôt principal).'
     )
     process.exitCode = 1
@@ -97,12 +102,45 @@ async function mettreAJour(dossierCible, existante, jeton) {
   // que les deux mécanismes restent cohérents (jamais de version
   // différente entre ce qui a été annoncé et ce qui est réellement
   // installé).
-  ecrireImageTag(dossierCible, release.tag)
+  // Natif : le checkout est d'abord rafraîchi (archive source vérifiée +
+  // npm install) pour disposer de l'installateur de la version cible — une
+  // installation antérieure à tracescale#1223 n'a pas encore de
+  // `--cible=natif --mettre-a-jour`. La séquence côté dépôt privé lit la
+  // version en cours dans build/package.json (ce qui tourne), pas dans le
+  // checkout : cet amorçage ne la trompe pas.
+  if (natif) {
+    try {
+      await avecSpinner(
+        "Mise à jour de l'installateur (checkout)...",
+        () => telechargerEtExtraire(release, jeton, dossierCible),
+        { succes: () => 'Installateur à jour.' }
+      )
+    } catch {
+      process.exitCode = 1
+      return
+    }
+    const resultatInstall = spawnSync('npm', ['install'], {
+      cwd: dossierCible,
+      stdio: 'inherit',
+      shell: SUR_WINDOWS,
+    })
+    if (resultatInstall.status !== 0) {
+      console.error('npm install a échoué — voir le détail ci-dessus.')
+      process.exitCode = 1
+      return
+    }
+  }
+  // Pas d'IMAGE_TAG en natif : la version cible est passée à la commande
+  // (tracescale#1223) — même tag que celui annoncé et confirmé ci-dessus.
+  const argsInstaller = natif
+    ? ['ace', 'instance:installer', `--type=${existante.type}`, '--cible=natif', '--mettre-a-jour', `--version=${release.tag}`]
+    : ['ace', 'instance:installer', '--type=site', '--mettre-a-jour']
+  if (!natif) ecrireImageTag(dossierCible, release.tag)
 
   console.log('\nLancement de la mise à jour...\n')
   // #10 / tracescale#1224 : jeton transmis par l'environnement, jamais en
   // argument (visible dans `ps` le temps de la mise à jour).
-  const resultat = spawnSync('node', ['ace', 'instance:installer', '--type=site', '--mettre-a-jour'], {
+  const resultat = spawnSync('node', argsInstaller, {
     cwd: join(dossierCible, 'apps/api'),
     stdio: 'inherit',
     shell: SUR_WINDOWS,

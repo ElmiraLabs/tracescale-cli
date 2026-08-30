@@ -44,7 +44,7 @@ puis regarde ce qu'il y a dedans :
   release sans manifeste est refusée, rien n'est extrait), installe les
   dépendances, puis lance l'assistant d'installation côté dépôt privé.
 
-- **Dossier contenant déjà une installation Site/Docker** → mise à jour :
+- **Dossier contenant déjà une installation Site/Docker, ou native (Site ou Siège)** → mise à jour :
   le type est détecté automatiquement (pas besoin de le refournir), la
   version déjà installée est comparée à la dernière release publiée, puis
   une confirmation est demandée avant de lancer la mise à jour. Le tag
@@ -81,7 +81,7 @@ client/déploiement.
 ## Portée
 
 Détecte et gère le premier provisionnement **et** la mise à jour d'une
-installation Site/Docker existante. Pour un renouvellement de certificat,
+installation Site/Docker ou native existante (la mise à jour native — sauvegarde, bascule de `build/`, retour arrière — est décrite dans `deploy/site-natif/README.md` du dépôt principal). Pour un renouvellement de certificat,
 une réinstallation forcée, ou une mise à jour Siège/bare-metal (pas encore
 détectées automatiquement), utiliser directement les commandes déjà
 installées depuis le répertoire cloné (`node ace instance:installer ...`,
