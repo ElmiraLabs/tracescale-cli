@@ -52,15 +52,15 @@ test('deciderDesinstallation : toute combinaison identifiée ; refus si type ou 
   assert.equal(deciderDesinstallation(null), null)
 })
 
-test('argumentsDesinstallation : --purger-donnees seulement si demandé, jamais de jeton', () => {
-  assert.deepEqual(argumentsDesinstallation('site', 'natif', false), [
+test('argumentsDesinstallation : chaque niveau seulement si demandé, jamais de jeton', () => {
+  assert.deepEqual(argumentsDesinstallation('site', 'natif', { purgerDonnees: false }), [
     'ace',
     'instance:installer',
     '--type=site',
     '--cible=natif',
     '--desinstaller',
   ])
-  assert.deepEqual(argumentsDesinstallation('siege', 'docker', true), [
+  assert.deepEqual(argumentsDesinstallation('siege', 'docker', { purgerDonnees: true }), [
     'ace',
     'instance:installer',
     '--type=siege',
@@ -68,5 +68,16 @@ test('argumentsDesinstallation : --purger-donnees seulement si demandé, jamais 
     '--desinstaller',
     '--purger-donnees',
   ])
-  assert.ok(!argumentsDesinstallation('site', 'docker', undefined).includes('--purger-donnees'))
+  assert.ok(!argumentsDesinstallation('site', 'docker').includes('--purger-donnees'))
+  // tracescale#1255 : --tout, --lister, --supprimer-images transmis tels quels.
+  assert.deepEqual(
+    argumentsDesinstallation('site', 'docker', {
+      purgerDonnees: true,
+      tout: true,
+      lister: true,
+      supprimerImages: true,
+    }).slice(5),
+    ['--purger-donnees', '--tout', '--lister', '--supprimer-images']
+  )
+  assert.deepEqual(argumentsDesinstallation('site', 'natif', { tout: 'oui' }).slice(5), [])
 })

@@ -62,21 +62,35 @@ async function desinstaller(args) {
     process.exitCode = 1
     return
   }
-  const purger = args['purger-donnees'] === true
-  const description = `${cible.type}/${cible.cible}${existante.version ? ` ${existante.version}` : ''}`
-  console.log(
-    `\nInstallation détectée : ${description} dans ${dossierCible}.` +
-      (purger
-        ? '\nAVEC --purger-donnees : base de données, certificats et données seront SUPPRIMÉS (irréversible).'
-        : '\nLes données (base, certificats) sont conservées ; seuls les services et conteneurs sont retirés.')
-  )
-  const continuer = await askConfirmation('Désinstaller maintenant ?', { default: false })
-  if (!continuer) {
-    console.log('Désinstallation annulée.')
-    return
+  // tracescale#1255 : niveaux emboîtés transmis tels quels — l'installateur
+  // affiche l'inventaire, contrôle la cohérence (--tout exige
+  // --purger-donnees) et redemande confirmation à chaque niveau.
+  const options = {
+    purgerDonnees: args['purger-donnees'] === true,
+    tout: args.tout === true,
+    lister: args.lister === true,
+    supprimerImages: args['supprimer-images'] === true,
   }
-  console.log('\nLancement de la désinstallation...\n')
-  const resultat = spawnSync('node', argumentsDesinstallation(cible.type, cible.cible, purger), {
+  const description = `${cible.type}/${cible.cible}${existante.version ? ` ${existante.version}` : ''}`
+  console.log(`\nInstallation détectée : ${description} dans ${dossierCible}.`)
+  if (options.lister) {
+    console.log('Inventaire seulement (--lister) : rien ne sera retiré.\n')
+  } else {
+    console.log(
+      options.tout
+        ? 'AVEC --tout : base, certificats, journaux, dossier système ET checkout seront SUPPRIMÉS (irréversible) — prérequis et compte système conservés.'
+        : options.purgerDonnees
+          ? 'AVEC --purger-donnees : base de données, certificats et données seront SUPPRIMÉS (irréversible).'
+          : 'Les données (base, certificats) sont conservées ; seuls les services et conteneurs sont retirés.'
+    )
+    const continuer = await askConfirmation('Désinstaller maintenant ?', { default: false })
+    if (!continuer) {
+      console.log('Désinstallation annulée.')
+      return
+    }
+    console.log('\nLancement de la désinstallation...\n')
+  }
+  const resultat = spawnSync('node', argumentsDesinstallation(cible.type, cible.cible, options), {
     cwd: join(dossierCible, 'apps/api'),
     stdio: 'inherit',
     shell: SUR_WINDOWS,

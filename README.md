@@ -68,6 +68,12 @@ puis regarde ce qu'il y a dedans :
 npx github:ElmiraLabs/tracescale-cli --desinstaller --dir=./tracescale
 # + suppression de la base, des certificats et des données (IRRÉVERSIBLE) :
 npx github:ElmiraLabs/tracescale-cli --desinstaller --purger-donnees --dir=./tracescale
+# + dossier système (journaux), step-ca/réseau Docker et le checkout lui-même (IRRÉVERSIBLE) :
+npx github:ElmiraLabs/tracescale-cli --desinstaller --purger-donnees --tout --dir=./tracescale
+# Inventaire de ce que chaque niveau retirerait, sans rien faire :
+npx github:ElmiraLabs/tracescale-cli --desinstaller --lister --dir=./tracescale
+# Docker seulement : + images tracescale-api/-web au tag installé (jamais postgres ni step-ca) :
+npx github:ElmiraLabs/tracescale-cli --desinstaller --supprimer-images --dir=./tracescale
 ```
 
 Aucun jeton, aucun téléchargement : la CLI identifie l'installation présente
@@ -76,6 +82,12 @@ déjà en place (`node ace instance:installer --type=… --cible=… --desinstal
 qui redemande lui-même confirmation avant toute purge. Sans `--purger-donnees`,
 seuls les services (natif) ou conteneurs (Docker) sont retirés — base,
 certificats et configuration restent en place pour une réinstallation.
+Trois niveaux emboîtés : `--desinstaller` ⊂ `--purger-donnees` ⊂ `--tout`
+(qui exige `--purger-donnees`). Avec `--tout`, le checkout n'est pas effacé
+en bloc : seuls ses sous-dossiers connus du dépôt et ses fichiers de premier
+niveau sont retirés, tout autre sous-dossier est conservé et nommé. Les
+prérequis (PostgreSQL, Node, nssm, step, Docker) et le compte système
+`tracescale` (Linux) ne sont jamais touchés.
 
 ## Prérequis sur la machine cible
 
