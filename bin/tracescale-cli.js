@@ -13,7 +13,12 @@ import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
 import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
 import { AVERTISSEMENT_JETON_ARGUMENT, envAvecJeton, resoudreJeton } from '../lib/jeton.js'
-import { argumentsInstanceInstaller, deciderMiseAJour } from '../lib/mise_a_jour.js'
+import {
+  argumentsDesinstallation,
+  argumentsInstanceInstaller,
+  deciderDesinstallation,
+  deciderMiseAJour,
+} from '../lib/mise_a_jour.js'
 import { avecSpinner } from '../lib/spinner.js'
 import { gris, blancGras, vertGras } from '../lib/ui.js'
 
@@ -37,13 +42,53 @@ function afficherBanniere() {
   console.log(`${gris(separateur)}\n`)
 }
 
+// `--cle=valeur` → chaîne ; `--drapeau` seul → true (`--desinstaller`,
+// `--purger-donnees`). Les tirets internes sont conservés dans la clé.
 function lireArgs() {
   const args = {}
   for (const arg of process.argv.slice(2)) {
-    const correspondance = /^--([a-z]+)=(.*)$/.exec(arg)
-    if (correspondance) args[correspondance[1]] = correspondance[2]
+    const correspondance = /^--([a-z][a-z-]*)(?:=(.*))?$/.exec(arg)
+    if (correspondance) args[correspondance[1]] = correspondance[2] ?? true
   }
   return args
+}
+
+// tracescale-cli `--desinstaller` (registre TraceScale 2026-08-30) : délègue
+// à l'installateur DÉJÀ PRÉSENT dans le checkout — aucun jeton, aucun
+// téléchargement. `--purger-donnees` n'est transmis que s'il est donné ;
+// les confirmations propres à l'installateur (purge irréversible) restent.
+async function desinstaller(args) {
+  const dossierBrut = args.dir ?? (await ask("Répertoire de l'installation", { default: './tracescale' }))
+  const dossierCible = resolve(process.cwd(), dossierBrut)
+  const existante = installationExistante(dossierCible)
+  const cible = deciderDesinstallation(existante)
+  if (!cible) {
+    console.error(
+      `${dossierCible} ne contient pas d'installation TraceScale identifiable (type et cible introuvables) — rien à désinstaller.`
+    )
+    process.exitCode = 1
+    return
+  }
+  const purger = args['purger-donnees'] === true
+  const description = `${cible.type}/${cible.cible}${existante.version ? ` ${existante.version}` : ''}`
+  console.log(
+    `\nInstallation détectée : ${description} dans ${dossierCible}.` +
+      (purger
+        ? '\nAVEC --purger-donnees : base de données, certificats et données seront SUPPRIMÉS (irréversible).'
+        : '\nLes données (base, certificats) sont conservées ; seuls les services et conteneurs sont retirés.')
+  )
+  const continuer = await askConfirmation('Désinstaller maintenant ?', { default: false })
+  if (!continuer) {
+    console.log('Désinstallation annulée.')
+    return
+  }
+  console.log('\nLancement de la désinstallation...\n')
+  const resultat = spawnSync('node', argumentsDesinstallation(cible.type, cible.cible, purger), {
+    cwd: join(dossierCible, 'apps/api'),
+    stdio: 'inherit',
+    shell: SUR_WINDOWS,
+  })
+  process.exitCode = resultat.status ?? 1
 }
 
 // Une installation détectée dans dossierCible ne redemande rien (type,
@@ -154,6 +199,12 @@ async function mettreAJour(dossierCible, existante, jeton) {
 async function main() {
   afficherBanniere()
   const args = lireArgs()
+
+  // Désinstallation : ni jeton ni téléchargement — traitée avant tout.
+  if (args.desinstaller === true) {
+    await desinstaller(args)
+    return
+  }
 
   // #10 / tracescale#1224 : variable d'environnement d'abord (jamais dans
   // `ps` ni l'historique), puis saisie masquée ; `--token=` encore accepté

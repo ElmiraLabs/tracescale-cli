@@ -120,6 +120,14 @@ flow, no framework:
   spawns `node ace instance:installer --type=site --mettre-a-jour` with
   `cwd: <dossierCible>/apps/api` and the token in `env`
   (`TRACESCALE_GITHUB_TOKEN`), never as `--token=`.
+- **Uninstall** — `--desinstaller [--purger-donnees]` (`desinstaller()` in
+  `bin/`, handled before any token prompt): detects the existing install,
+  asks one confirmation, then delegates to the installer already present
+  (`node ace instance:installer --type=<t> --cible=<c> --desinstaller
+  [--purger-donnees]`, `argumentsDesinstallation()`); every identified
+  type/cible pair is accepted (`deciderDesinstallation()`). Never downloads
+  anything and never adds `--purger-donnees` on its own. `lireArgs()`
+  accepts bare `--flag` (→ `true`) and keeps inner dashes in keys.
 - **`lib/jeton.js`** — `resoudreJeton(argumentToken, env)` (pure: env
   `TRACESCALE_GITHUB_TOKEN` → `--token` → `null`, trimmed) and
   `envAvecJeton(jeton, base)` (child-process env, never an argv). Tested
