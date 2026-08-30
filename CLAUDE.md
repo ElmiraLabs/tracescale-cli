@@ -16,8 +16,9 @@ never re-implements the update itself). **This repo contains zero business
 logic** — only download/install/update plumbing. Everything else lives in
 the private monorepo.
 
-There is no build step, no test suite, no linter, and no dependencies
-(`package.json` declares none). Run the CLI directly with Node ≥ 20:
+There is no build step, no linter, and no dependencies (`package.json`
+declares none); the pure helpers in `lib/` are covered by `npm test`
+(`node --test`). Run the CLI directly with Node ≥ 20:
 
 ```sh
 TRACESCALE_GITHUB_TOKEN=... node bin/tracescale-cli.js --dir=./tracescale --type=site --cible=docker
@@ -99,10 +100,18 @@ flow, no framework:
   `siege|site`, `cible` is `docker|natif`; the four combinations map to
   npm scripts of that same `install:<type>:<cible>` name expected to
   exist in the private repo's `package.json` once cloned.
-  `mettreAJour(dossierCible, existante, jeton)` only proceeds
-  automatically for `existante.type === 'site' && existante.cible ===
-  'docker'` (everything else prints a message pointing at `node ace
-  instance:installer` and exits) — fetches the latest release, compares
+  `mettreAJour(dossierCible, existante, jeton)` proceeds automatically
+  for Site/Docker and for native installs (Site or Siège, decided by the
+  pure `deciderMiseAJour()` in `lib/mise_a_jour.js`; Siège/Docker prints
+  a message pointing at `node ace instance:installer` and exits). Native:
+  the checkout is refreshed first (verified source archive + `npm
+  install`, so the installer of the target version is available — a
+  pre-#1223 install has no `--cible=natif --mettre-a-jour`), then `node
+  ace instance:installer --type=<type> --cible=natif --mettre-a-jour
+  --version=<tag>` (`argumentsInstanceInstaller()`). The installed version
+  is read from what RUNS (`apps/api/build/package.json` for native, see
+  `installationExistante`), never from the checkout the CLI itself
+  refreshes. Docker: fetches the latest release, compares
   its version to `existante.version` (no-op if already current), confirms
   with the operator, writes that confirmed tag into `deploy/site/.env`
   (`ecrireImageTag`, see below — keeps this tool's proposal and what

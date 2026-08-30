@@ -13,6 +13,7 @@ import { ask, askChoix, askConfirmation, askMasque } from '../lib/prompts.js'
 import { derniereRelease, telechargerEtExtraire, versionDepuisTag } from '../lib/github.js'
 import { installationExistante, ecrireImageTag } from '../lib/installation_existante.js'
 import { AVERTISSEMENT_JETON_ARGUMENT, envAvecJeton, resoudreJeton } from '../lib/jeton.js'
+import { argumentsInstanceInstaller, deciderMiseAJour } from '../lib/mise_a_jour.js'
 import { avecSpinner } from '../lib/spinner.js'
 import { gris, blancGras, vertGras } from '../lib/ui.js'
 
@@ -55,9 +56,9 @@ async function mettreAJour(dossierCible, existante, jeton) {
   // tracescale#1223 : le natif (Site et Siège) est délégué à
   // `--cible=natif --mettre-a-jour --version=<tag>` ; Docker reste limité au
   // Site (IMAGE_TAG écrit dans deploy/site/.env par ecrireImageTag).
-  const natif = existante.cible === 'natif' && (existante.type === 'site' || existante.type === 'siege')
-  const siteDocker = existante.type === 'site' && existante.cible === 'docker'
-  if (!natif && !siteDocker) {
+  const mode = deciderMiseAJour(existante)
+  const natif = mode === 'natif'
+  if (mode === null) {
     const description = existante.type
       ? `${existante.type}/${existante.cible ?? 'inconnue'}`
       : 'de type indéterminé'
@@ -105,9 +106,12 @@ async function mettreAJour(dossierCible, existante, jeton) {
   // Natif : le checkout est d'abord rafraîchi (archive source vérifiée +
   // npm install) pour disposer de l'installateur de la version cible — une
   // installation antérieure à tracescale#1223 n'a pas encore de
-  // `--cible=natif --mettre-a-jour`. La séquence côté dépôt privé lit la
-  // version en cours dans build/package.json (ce qui tourne), pas dans le
-  // checkout : cet amorçage ne la trompe pas.
+  // `--cible=natif --mettre-a-jour`. Ni la séquence côté dépôt privé ni ce
+  // CLI (installationExistante) ne lisent la version en cours dans le
+  // checkout — tous deux lisent build/package.json (ce qui tourne) : cet
+  // amorçage ne les trompe pas. Doublon assumé : la séquence retélécharge
+  // l'archive et refait `npm install` (elle ne peut pas supposer un checkout
+  // déjà frais) — coût en temps/bande passante accepté, pas en sûreté.
   if (natif) {
     try {
       await avecSpinner(
@@ -132,9 +136,7 @@ async function mettreAJour(dossierCible, existante, jeton) {
   }
   // Pas d'IMAGE_TAG en natif : la version cible est passée à la commande
   // (tracescale#1223) — même tag que celui annoncé et confirmé ci-dessus.
-  const argsInstaller = natif
-    ? ['ace', 'instance:installer', `--type=${existante.type}`, '--cible=natif', '--mettre-a-jour', `--version=${release.tag}`]
-    : ['ace', 'instance:installer', '--type=site', '--mettre-a-jour']
+  const argsInstaller = argumentsInstanceInstaller(mode, existante.type, release.tag)
   if (!natif) ecrireImageTag(dossierCible, release.tag)
 
   console.log('\nLancement de la mise à jour...\n')
