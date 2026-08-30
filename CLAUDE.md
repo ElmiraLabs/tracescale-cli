@@ -68,10 +68,10 @@ instead (see `lib/prompts.js`).
   `deploy/staging/.env`, `apps/api/build/.env`'s `TYPE_INSTANCE=`) — no
   guessing, no re-asking the operator. Site+Docker and native (Site/Siège, tracescale#1223) updates are
   delegated automatically (`node ace instance:installer --mettre-a-jour`,
-  spawned with the same token already collected); anything else (Siège,
-  bare-metal) prints a clear message pointing at `node ace
-  instance:installer` directly rather than attempting a call that would
-  fail. The actual update mechanism (what `--mettre-a-jour` downloads,
+  spawned with the token in `env`); anything else (Siège/Docker, or a
+  native install whose `TYPE_INSTANCE` could not be read) prints a clear
+  message pointing at `node ace instance:installer` directly rather than
+  attempting a call that would fail. The actual update mechanism (what `--mettre-a-jour` downloads,
   rebuilds, restarts) lives entirely in the private repo — this repo only
   detects and delegates.
 - **This repo is public; the token must never leak into it.** The access
